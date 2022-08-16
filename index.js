@@ -19,7 +19,7 @@ menuChoices = [{
                 type: 'list',
                 name: 'menuChoice',
                 message: 'What would you like to do?',
-                choices: ['View Departments','Add Department','Remove Department','View Roles','Add Role','Remove Role','View Employees','Add Employee','Remove Employee','View Financial Report','Exit']
+                choices: ['View Departments','Add Department','Remove Department','View Roles','Add Role','Remove Role','View Employees','Add Employee','Remove Employee','Update Employee Role','View Financial Report','Exit']
                }
 ]
  
@@ -62,6 +62,9 @@ function init() {
                     break;
                 case 'Add Employee':
                     addEmployee();
+                    break;
+                case 'Update Employee Role':
+                    updateEmployee();
                     break;
                 case 'Remove Employee':
                     removeEmployee();
@@ -181,7 +184,7 @@ async function removeEmployee() {
     stuff[0].forEach((role) => {
         emps.push(role.emp_name);
     })
-    inquirer.prompt({type:'list',name:'empName',message:'Which role would you like to remove?',choices:emps})
+    inquirer.prompt({type:'list',name:'empName',message:'Which employee would you like to remove?',choices:emps})
         .then(async (remEmp) => {
             let empId =0;
             stuff[0].forEach((dept) => {
@@ -194,8 +197,38 @@ async function removeEmployee() {
             init();
         })
 }
+async function updateEmployee() {
+    const stuff = await db.promise().query("select id, CONCAT(first_name, concat(' ', last_name)) emp_name from employees");
+    const emps = [];
+    stuff[0].forEach((role) => {
+        emps.push(role.emp_name);
+    })
+    const empRole = await db.promise().query('select * from roles');
+    const roles = [];
+    empRole[0].forEach((role) => {
+        roles.push(role.title);
+    })
+    inquirer.prompt([{type:'list',name:'empName',message:'Which employee would you change roles?',choices:emps},
+                    {type:'list',name:'roleName',message:'Which role would you like to assign?',choices:roles}])
+        .then(async (remEmp) => {
+            let empId =0;
+            stuff[0].forEach((dept) => {
+                if(dept.emp_name==remEmp.empName){
+                    empId = dept.id;
+                }
+            })
+            let roleId =0;
+            empRole[0].forEach((role) => {
+                if(role.title==remEmp.roleName){
+                    roleId = role.id;
+                }
+            })
+            await db.promise().query(`update employees set role_id = ${roleId} where id = ${empId}`)
+            console.log(`updated ${remEmp.empName} role to ${remEmp.roleName}`);
+            init();
+        })
+}
 async function viewAll(view) {
-    console.log(`view ${view}`)
     switch (view) {
         case 'departments':
             const dept = await db.promise().query('select * from departments');
@@ -246,6 +279,15 @@ async function viewAll(view) {
                     }
                 })
             break;
+        case 'finance':
+            let fin = null;
+            fin = await db.promise().query(`select d.name dept_name, count(e.id) head_count, sum(r.salary) total_salary
+                                                from employees e 
+                                                join roles r on r.id = e.role_id
+                                                join departments d on d.id = r.department_id
+                                                group by d.name
+                                                order by d.name`);
+            console.table(fin[0]);   
     }
     init();
 }
