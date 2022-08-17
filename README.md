@@ -10,3 +10,5 @@ The Functions are as follows:
 2. Add/Remove Roles and Associated Salaries
 3. Add/Remove/Update Employee Records and Manager Associations
 4. Reporting - There are a handful of custom reports available as well
+
+[Repo Link](https://github.com/jaronhadley/custom_crm)

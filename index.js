@@ -2,7 +2,6 @@ const inquirer = require("inquirer");
 const mysql = require('mysql2');
 const cTable = require('console.table');
 require('dotenv').config();
-//const bluebird = require('bluebird');
 
 // Connect to database
 const db = mysql.createConnection(
@@ -15,6 +14,7 @@ const db = mysql.createConnection(
     console.log(`Connected to the ${process.env.DB_NAME} database.`)
   );
 
+// list of menu questions
 menuChoices = [{
                 type: 'list',
                 name: 'menuChoice',
@@ -24,18 +24,7 @@ menuChoices = [{
 ]
  
 function init() {
-    // view Department
-    // add Department
-    // delete department
-    // view roles
-    // add roles
-    // delete role
-    // view employees
-        // view employees by manager
-        // view employees by department
-    // add employees
-    // delete employees
-    // financial report
+// Initializes the menu with selection
     inquirer.prompt(menuChoices)
         .then((menuAnswer) => {
             switch(menuAnswer.menuChoice) {
@@ -81,8 +70,10 @@ function init() {
 }
 
 function addDepartment() {
+    // function to add a new department
     inquirer.prompt([{type:'input',name:'deptName',message:'What is the name of the new department?'}])
         .then((newDept) =>{
+            // given user input insert new dept into dept table
             db.query(`insert into departments (name) values ('${newDept.deptName}')`)
             console.log(`Added ${newDept.deptName} department to database`)
         })
@@ -91,20 +82,24 @@ function addDepartment() {
         })
 }
 async function removeDepartment() {
+    // get list of active departments
     const stuff = await db.promise().query('select * from departments');
     console.log(stuff[0]);
     const depts = [];
+    // add department names to list for display to user
     stuff[0].forEach((dept) => {
         depts.push(dept.name);
     })
     inquirer.prompt({type:'list',name:'deptName',message:'Which role would you like to remove?',choices:depts})
         .then(async (remDept) => {
+            // delete the selected department
             await db.promise().query(`delete from departments where name = '${remDept.deptName}'`)
             console.log(`removed ${remDept.deptName} from roles`);
             init();
         })
 }
 async function addRole() {
+    // get list of active departements to help assign role to correct department id
     const stuff = await db.promise().query('select * from departments');
     const depts = [];
     stuff[0].forEach((dept) => {
@@ -114,41 +109,44 @@ async function addRole() {
                       {type:'input',name:'roleSalary',message:'What is expected salary of the new employee role?'},
                     {type:'list',name:'deptName',message:'Which department does this role belong to?',choices:depts}])
         .then(async (newRole) => {
+            // find department id associated with the department selected by the user
             let id =0;
             stuff[0].forEach((dept) => {
                 if(dept.name==newRole.deptName){
                     id = dept.id;
                 }
             })
+            // insert new role into roles table
             await db.promise().query(`insert into roles (title, salary, department_id) values ('${newRole.roleName}',${newRole.roleSalary},${id})`)
             console.log(`Added ${newRole.roleName} role to database`)
             init();
         })
 }
 async function removeRole() {
-    console.log('Remove Role')
+// get list of active roles
     const stuff = await db.promise().query('select * from roles');
-    console.log(stuff[0]);
     const roles = [];
     stuff[0].forEach((role) => {
         roles.push(role.title);
     })
     inquirer.prompt({type:'list',name:'roleName',message:'Which role would you like to remove?',choices:roles})
         .then((remRole) => {
+            // delete role selected by user
             db.query(`delete from roles where title = '${remRole.roleName}'`)
             console.log(`removed ${remRole.roleName} from roles`);
             init();
         })
 }
 async function addEmployee() {
+    // get list of active roles
     const roles = await db.promise().query('select * from roles');
     const role = [];
     roles[0].forEach((val) => {
         role.push(val.title);
     })
+    // get list of employees who could be managers
     const mgrs = await db.promise().query("select id, CONCAT(first_name, concat(' ', last_name)) mgr_name from employees");
     const mgr = [];
-    //console.log(mgrs[0])
     mgrs[0].forEach((val) => {
         mgr.push(val.mgr_name);
     })
@@ -159,18 +157,21 @@ async function addEmployee() {
                     {type:'list',name:'mgrName',message:'Which manager, if any, will this employee report to?',choices:mgr},
                 ])
         .then(async (newEmp) => {
+            // find id for selected employee
             let roleId =0;
             roles[0].forEach((dept) => {
                 if(dept.title==newEmp.roleName){
                     roleId = dept.id;
                 }
             })
+            // if no manager is selected it should default to null
             let mgrId = null;
             mgrs[0].forEach((magr) => {
                 if(magr.mgr_name==newEmp.mgrName){
                     mgrId = magr.id;
                 }
             })
+            // insert new employee with assigned role and manager id
             await db.promise().query(`insert into employees (first_name, last_name, role_id, manager_id) values ('${newEmp.empFirst}','${newEmp.empLast}',${roleId},${mgrId})`)
             console.log(`Added employee ${newEmp.empFirst} ${newEmp.empLast} to database`)
         }).then((things) => {
@@ -178,69 +179,77 @@ async function addEmployee() {
         })
 }
 async function removeEmployee() {
+    // get list of current employees
     const stuff = await db.promise().query("select id, CONCAT(first_name, concat(' ', last_name)) emp_name from employees");
-    console.log(stuff[0]);
     const emps = [];
     stuff[0].forEach((role) => {
         emps.push(role.emp_name);
     })
     inquirer.prompt({type:'list',name:'empName',message:'Which employee would you like to remove?',choices:emps})
         .then(async (remEmp) => {
+            // get id for the associated name selected by user
             let empId =0;
             stuff[0].forEach((dept) => {
                 if(dept.emp_name==remEmp.empName){
                     empId = dept.id;
                 }
             })
+            // delete selected employee from employee table
             await db.promise().query(`delete from employees where id = '${empId}'`)
             console.log(`removed ${remEmp.empName} from employees`);
             init();
         })
 }
 async function updateEmployee() {
+    // get active employees
     const stuff = await db.promise().query("select id, CONCAT(first_name, concat(' ', last_name)) emp_name from employees");
     const emps = [];
     stuff[0].forEach((role) => {
         emps.push(role.emp_name);
     })
+    // get active roles
     const empRole = await db.promise().query('select * from roles');
     const roles = [];
     empRole[0].forEach((role) => {
         roles.push(role.title);
     })
+    // ask for employee and role to update
     inquirer.prompt([{type:'list',name:'empName',message:'Which employee would you change roles?',choices:emps},
                     {type:'list',name:'roleName',message:'Which role would you like to assign?',choices:roles}])
         .then(async (remEmp) => {
+            // find id for selected employee
             let empId =0;
             stuff[0].forEach((dept) => {
                 if(dept.emp_name==remEmp.empName){
                     empId = dept.id;
                 }
             })
+            // find id for selected role
             let roleId =0;
             empRole[0].forEach((role) => {
                 if(role.title==remEmp.roleName){
                     roleId = role.id;
                 }
             })
+            // update with information selected by user
             await db.promise().query(`update employees set role_id = ${roleId} where id = ${empId}`)
             console.log(`updated ${remEmp.empName} role to ${remEmp.roleName}`);
             init();
         })
 }
 async function viewAll(view) {
+    // Add functions passed to viewAll have a specific query to perform and output
     switch (view) {
         case 'departments':
             const dept = await db.promise().query('select * from departments');
-            //console.log(out[0]);
             console.table(dept[0]);
             break;
         case 'roles':
             const rol = await db.promise().query('select r.id, r.title, d.name department, r.salary from roles r join departments d on r.department_id = d.id order by d.name');
-            //console.log(out[0]);
             console.table(rol[0]);
             break;
         case 'employees':
+            // we allow for the employee report to be demonstrated as by employee, manager and department
             await inquirer.prompt([{type:'list',name:'rptType',message:'How would you like to view employee data?',choices:['By Department','By Manager','All Employee Data']}])
                 .then(async (zults) => {
                     if(zults.rptType=='By Department'){
@@ -280,6 +289,7 @@ async function viewAll(view) {
                 })
             break;
         case 'finance':
+            // final financial report that shows the employee count and salary by department
             let fin = null;
             fin = await db.promise().query(`select d.name dept_name, count(e.id) head_count, sum(r.salary) total_salary
                                                 from employees e 
