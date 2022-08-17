@@ -84,7 +84,6 @@ function addDepartment() {
 async function removeDepartment() {
     // get list of active departments
     const stuff = await db.promise().query('select * from departments');
-    console.log(stuff[0]);
     const depts = [];
     // add department names to list for display to user
     stuff[0].forEach((dept) => {
